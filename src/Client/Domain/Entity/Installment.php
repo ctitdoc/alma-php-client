@@ -27,6 +27,17 @@ namespace Alma\Client\Domain\Entity;
 
 class Installment extends AbstractEntity
 {
+    /** States of an instalment of a payment, as the API sends them */
+    const STATE_PENDING = 'pending';
+    const STATE_PAID = 'paid';
+    const STATE_COVERED = 'covered';
+
+    /**
+     * State of an instalment of a forecast schedule — an eligibility's, not a payment's yet.
+     * The API never sends it: Eligibility::getInstallments() gives it to the rows Alma sends without one.
+     */
+    const STATE_FORECAST = 'forecast';
+
     protected int $customerFee;
 
     protected int $customerInterest;
@@ -36,6 +47,9 @@ class Installment extends AbstractEntity
     protected int $purchaseAmount;
 
     protected string $state;
+
+    /** Set only when Alma sends total_amount (an eligibility's rows do) */
+    protected int $totalAmount;
 
     /** Mapping of required fields */
     protected array $requiredFields = [
@@ -48,6 +62,7 @@ class Installment extends AbstractEntity
 
     /** Mapping of optional fields */
     protected array $optionalFields = [
+        'totalAmount' => 'total_amount',
     ];
 
     /**
@@ -93,5 +108,35 @@ class Installment extends AbstractEntity
     public function getState(): string
     {
         return $this->state;
+    }
+
+    /**
+     * Returns the total amount of the installment in cents: what Alma sends as total_amount when it does,
+     * the sum of the purchase amount, the customer fee and the customer interest otherwise.
+     * Alma's backend is the master of the data: a value it sent is never replaced by a computed one.
+     * @return int
+     */
+    public function getTotalAmount(): int
+    {
+        return isset($this->totalAmount) ? $this->totalAmount : $this->getComputedTotalAmount();
+    }
+
+    /**
+     * Returns the purchase amount plus the customer fee plus the customer interest, in cents
+     * @return int
+     */
+    public function getComputedTotalAmount(): int
+    {
+        return $this->purchaseAmount + $this->customerFee + $this->customerInterest;
+    }
+
+    /**
+     * Whether the total amount Alma sent, if any, equals the sum of the purchase amount, the customer fee
+     * and the customer interest. True when Alma sent none.
+     * @return bool
+     */
+    public function hasConsistentTotalAmount(): bool
+    {
+        return !isset($this->totalAmount) || $this->totalAmount === $this->getComputedTotalAmount();
     }
 }

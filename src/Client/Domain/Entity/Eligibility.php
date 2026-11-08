@@ -213,6 +213,22 @@ class Eligibility extends AbstractEntity implements PaymentPlanInterface
     }
 
     /**
+     * The payment plan typed as a Payment's is: one Installment per row, in the state
+     * Installment::STATE_FORECAST unless Alma sent a state — an eligibility's schedule is a forecast,
+     * the API sends no state for it. A row missing a required field throws, as for a Payment.
+     * @return PaymentPlan
+     * @throws ParametersException
+     */
+    public function getInstallments(): PaymentPlan
+    {
+        $paymentPlan = new PaymentPlan();
+        foreach ($this->paymentPlan as $row) {
+            $paymentPlan->add(new Installment((array) $row + ['state' => Installment::STATE_FORECAST]));
+        }
+        return $paymentPlan;
+    }
+
+    /**
      * Get failure constraints.
      * @return array
      * @noinspection PhpUnused Used by implementations
